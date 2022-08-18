@@ -1,0 +1,13 @@
+{
+    "Records": [
+        {
+            "messageId": "059f36b4-87a3-44ab-83d2-661975830a7d",
+            "body": 
+                {
+                    "type": "GenerateSessionID", 
+                    "url": "https://members-ng.iracing.com/data/results/search_series?official_only=true&event_types=5&category_ids=2&finish_range_begin=2022-08-15T00:00Z&start_range_begin=2022-08-13T12:00Z"
+                },
+            "eventSource": "aws:sqs"
+        }
+    ]
+}

@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  irStats - Serverless Application Built Using SAM
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+  GenerateSessionListFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: irStats_Generate_Session_List_Query
+      CodeUri: generate_session_list_query/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Timeout: 3
+      Policies:
+        - AmazonDynamoDBReadOnlyAccess
+        - Version: '2012-10-17' # Policy Document
+          Statement: 
+            - Effect: Allow
+              Action:
+              - sqs:SendMessage
+              - sqs:GetQueueUrl
+              Resource: !GetAtt SQSQueueiRacingQueries.Arn
+      Environment:
+        Variables:
+          table_name: irStats_Generate_Session_List_Parameters
+          queue_name: irStats_iRacingApiQueryQueue
+          default_time: 2022-08-15T00:00Z
+          category_ids: '2'
+          event_types: '5'
+          official_only: 'true'
+      Events:
+        Trigger:
+          Type: Schedule
+          Properties:
+            Schedule: rate(3 minutes)
+
+  DynamoDBTableSessionListStartTime:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: irStats_Generate_Session_List_Parameters
+      AttributeDefinitions:
+        - AttributeName: Parameter
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Parameter
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      ProvisionedThroughput:
+        ReadCapacityUnits: 0
+        WriteCapacityUnits: 0
+
+  SQSQueueiRacingQueries:
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: irStats_iRacingApiQueryQueue
+
+  RunQueryAgainstiRacingDB:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: irStats_Run_iRacing_Query
+      CodeUri: run_iRacing_query/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Timeout: 30
+      Environment:
+        Variables:
+          bucket_name: irstats-storage
+          cookie_file_name: iRCookieJar.json
+          table_name: irStats_Generate_Session_List_Parameters
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SQSQueueiRacingQueries.Arn
+            BatchSize: 1
+
+  S3PrivateBucketForCredentials:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      BucketName: irstats-storage
+
