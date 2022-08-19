@@ -18,13 +18,12 @@ def get_prev_time_from_dynamoDB():
     #If it doesn't exist, return the environment variable containing the default value
     response = table.get_item(
         Key={
-           'Parameter': 'finish_date_begin' 
+           'Parameter': 'finish_range_begin' 
         }
     )
     #If the value doesn't exist, the response does not contain item
-    x = json.dumps(response)
-    if 'item' in x:
-        return x['Item']
+    if 'Item' in response:
+        return response['Item']['Value']
     return os.environ['default_time']
 
 def get_start_time_from_finish_time(finish_time):
@@ -43,14 +42,15 @@ def lambda_handler(event, context):
     start_range_begin = get_start_time_from_finish_time(finish_range_begin)
 
     url = f"https://members-ng.iracing.com/data/results/search_series?official_only={official_only}&event_types={event_types}&category_ids={category_ids}&finish_range_begin={finish_range_begin}&start_range_begin={start_range_begin}"
+
+    print (url)
+    
     payload = {
         'type': 'GenerateSessionID',
         'url' : url
     }
 
-    q = queue.send_message(MessageBody=json.dumps(payload))
-
-    print (q)
+    queue.send_message(MessageBody=json.dumps(payload))
 
     return {
         "statusCode": 200,

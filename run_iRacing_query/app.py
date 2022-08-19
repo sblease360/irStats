@@ -2,12 +2,23 @@ import json
 import boto3
 import os
 import requests
+from datetime import timedelta
+from dateutil.parser import parse
 import pickle
 
+#S3 Details
 s3 = boto3.client("s3")
 s3_bucket = os.environ['bucket_name']
 
 cookieFileName = os.environ['cookie_file_name']
+
+#SQS Details
+sqs = boto3.resource('sqs', region_name='eu-west-2')
+apiQueue = sqs.get_queue_by_name(QueueName=os.environ['queue_name'])
+
+#dynamoDB Details
+dynamodb = boto3.resource("dynamodb", region_name='eu-west-2')
+table = dynamodb.Table(os.environ['table_name'])
 
 def doesS3FileExist(bucket, file):
     results = s3.list_objects(Bucket=bucket, Prefix=file)
@@ -44,7 +55,6 @@ def getQueryResultList(url, cookie):
     ret = []
     r1 = requests.get(f"{url}", cookies=cookie)
     if r1:
-        #print (r1.text)
         j = json.loads(r1.text)
         if (j['data']['chunk_info']) and ('base_download_url' in j['data']['chunk_info']) and ('chunk_file_names' in j['data']['chunk_info']):
             for x in j['data']['chunk_info']['chunk_file_names']:
@@ -68,19 +78,55 @@ def getQueryResultList(url, cookie):
     #Other error - return False
     else: 
         print (f"iRacing Status Code Error {r1.status_code}")
+        print (r1)
         return False
+
+def handleGenerateSessionID(url, cookie):
+    #For GenerateSessionID - run the query, isolate the subsession IDs and add them back to the SQS Queue to be run by a subsequent invocation
+    #Record the highest finish time and record this to the DB, this is fed into the GenerateSessionID query by the function which generates that
+    sessionList = getQueryResultList(url, cookie)
+    if sessionList:
+        maxtime = parse("2000-01-01T00:00:00Z")
+        for i in sessionList:
+            t = parse(i['end_time'])
+            if t > maxtime:
+                maxtime = t
+            newUrl = f"https://members-ng.iracing.com/data/results/get?subsession_id={i['subsession_id']}"
+            payload = {
+                'type': 'RetrieveData',
+                'url' : newUrl
+            }
+            #Disable this to stop thousands of invocations while testing
+            #apiQueue.send_message(MessageBody=json.dumps(payload))
+        table.update_item(
+            Key={
+            'Parameter': 'finish_range_begin'
+            },
+            ExpressionAttributeNames={
+                '#value': 'Value'
+            },
+            ExpressionAttributeValues={
+                ':nv': maxtime.strftime('%Y-%m-%dT%H:%MZ')
+            },
+            UpdateExpression='SET #value = :nv',
+            ReturnValues='UPDATED_NEW'
+        )
+
+def handleRetrieveDataQuery(url, cookie):
+    #For Retrieve Data we simply run the API query and store the returned value in data queue
+    return ""
 
 def lambda_handler(event, context):
     cookie = getCookie(s3_bucket, cookieFileName)
 
+    #Iterate through events, each event should only contain one record but this covers if not
     for record in event['Records']:
-        payload = record['body']
-        url = payload['url']
-        if payload['type'] == 'GenerateSessionID':
-            sessionList = getQueryResultList(url, cookie)
-            print (sessionList)
-            
-        
+        a = record['body']
+        a = json.loads(a)
+        if a['type'] == 'GenerateSessionID':
+            handleGenerateSessionID(a['url'], cookie)
+        elif a['type'] == 'RetrieveData':
+            print (f"Retrieve Data from {a['url']} requested")
 
     return {
         "statusCode": 200,

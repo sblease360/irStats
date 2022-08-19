@@ -18,7 +18,7 @@ Resources:
       Runtime: python3.9
       Architectures:
         - x86_64
-      Timeout: 3
+      Timeout: 10
       Policies:
         - AmazonDynamoDBReadOnlyAccess
         - Version: '2012-10-17' # Policy Document
@@ -72,12 +72,35 @@ Resources:
       Runtime: python3.9
       Architectures:
         - x86_64
-      Timeout: 30
+      Timeout: 300
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - Version: '2012-10-17' # Policy Document
+          Statement: 
+            - Effect: Allow
+              Action:
+              - sqs:SendMessage
+              - sqs:GetQueueUrl
+              Resource: !GetAtt SQSQueueiRacingQueries.Arn
+        - Version: '2012-10-17' # Policy Document
+          Statement: 
+            - Effect: Allow
+              Action:
+              - s3:ListBucket
+              Resource: !GetAtt S3PrivateBucketForCredentials.Arn
+        - Version: '2012-10-17' # Policy Document
+          Statement: 
+            - Effect: Allow
+              Action:
+              - s3:PutObject
+              - s3:GetObject
+              Resource: arn:aws:s3:::*/*
       Environment:
         Variables:
           bucket_name: irstats-storage
           cookie_file_name: iRCookieJar.json
           table_name: irStats_Generate_Session_List_Parameters
+          queue_name: irStats_iRacingApiQueryQueue
       Events:
         SQSTrigger:
           Type: SQS
@@ -94,4 +117,9 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'AES256'
       BucketName: irstats-storage
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls : true
+        BlockPublicPolicy : true
+        IgnorePublicAcls : true
+        RestrictPublicBuckets : true
 
