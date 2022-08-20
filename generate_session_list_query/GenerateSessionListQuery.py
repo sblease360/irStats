@@ -7,12 +7,6 @@ from datetime import timedelta
 ### Reads the most recently used time from the DynamoDB table and constructs a Query to get all race events since this time
 ### Query string is added to an SQS Queue to be processed by another Lambda function
 
-dynamodb = boto3.resource("dynamodb", region_name='eu-west-2')
-table = dynamodb.Table(os.environ['table_name'])
-
-sqs = boto3.resource('sqs', region_name='eu-west-2')
-queue = sqs.get_queue_by_name(QueueName=os.environ['queue_name'])
-
 def get_prev_time_from_dynamoDB():
     #Pull the finish time from the specific table, if it exists return it
     #If it doesn't exist, return the environment variable containing the default value
@@ -33,6 +27,12 @@ def get_start_time_from_finish_time(finish_time):
     y = x - timedelta(days=1.5)
     return y.strftime('%Y-%m-%dT%H:%MZ')
 
+dynamodb = boto3.resource("dynamodb", region_name='eu-west-2')
+table = dynamodb.Table(os.environ['table_name'])
+
+sqs = boto3.resource('sqs', region_name='eu-west-2')
+queue = sqs.get_queue_by_name(QueueName=os.environ['queue_name'])
+
 def lambda_handler(event, context):
 
     official_only = os.environ['official_only']
@@ -52,9 +52,4 @@ def lambda_handler(event, context):
 
     queue.send_message(MessageBody=json.dumps(payload))
 
-    return {
-        "statusCode": 200,
-        "body": json.dumps({
-            "message": "Success",
-        }),
-    }
+    return None

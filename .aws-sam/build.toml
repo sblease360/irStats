@@ -19,4 +19,13 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["RunQueryAgainstiRacingDB"]
 
+[function_build_definitions.86dd711f-f6a2-4ec0-8d17-4872cdcfb336]
+codeuri = "C:\\src\\irStats\\process_iRacing_data"
+runtime = "python3.9"
+architecture = "x86_64"
+handler = "ProcessiRacingData.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["ProcessiRacingData"]
+
 [layer_build_definitions]

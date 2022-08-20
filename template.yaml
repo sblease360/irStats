@@ -14,7 +14,7 @@ Resources:
     Properties:
       FunctionName: irStats_Generate_Session_List_Query
       CodeUri: generate_session_list_query/
-      Handler: app.lambda_handler
+      Handler: GenerateSessionListQuery.lambda_handler
       Runtime: python3.9
       Architectures:
         - x86_64
@@ -42,6 +42,76 @@ Resources:
           Properties:
             Schedule: rate(3 minutes)
 
+  RunQueryAgainstiRacingDB:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: irStats_Run_iRacing_Query
+      CodeUri: run_iRacing_query/
+      Handler: RuniRacingQuery.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Timeout: 300
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - Version: '2012-10-17' # Policy Document
+          Statement: 
+            - Effect: Allow
+              Action:
+              - sqs:SendMessage
+              - sqs:GetQueueUrl
+              Resource: 
+              - !GetAtt SQSQueueiRacingQueries.Arn
+              - !GetAtt SQSQueueiRacingData.Arn
+        - Version: '2012-10-17' # Policy Document
+          Statement: 
+            - Effect: Allow
+              Action:
+              - s3:ListBucket
+              Resource: !GetAtt S3PrivateBucketForCredentials.Arn
+        - Version: '2012-10-17' # Policy Document
+          Statement: 
+            - Effect: Allow
+              Action:
+              - s3:PutObject
+              - s3:GetObject
+              Resource: arn:aws:s3:::*/*
+      Environment:
+        Variables:
+          bucket_name: irstats-storage
+          cookie_file_name: iRCookieJar.json
+          table_name: irStats_Generate_Session_List_Parameters
+          api_queue_name: irStats_iRacingApiQueryQueue
+          data_queue_name: irStats_iRacingDataProcessingQueue
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SQSQueueiRacingQueries.Arn
+            BatchSize: 1
+
+  ProcessiRacingData:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: irStats_Process_iRacing_Data
+      CodeUri: process_iRacing_data/
+      Handler: ProcessiRacingData.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Timeout: 30
+      Policies:
+        - AmazonDynamoDBFullAccess
+      Environment:
+        Variables:
+          table_name: irStats_Generate_Session_List_Parameters
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SQSQueueiRacingData.Arn
+            BatchSize: 1
+
   DynamoDBTableSessionListStartTime:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
@@ -63,50 +133,10 @@ Resources:
     Properties: 
       QueueName: irStats_iRacingApiQueryQueue
 
-  RunQueryAgainstiRacingDB:
-    Type: AWS::Serverless::Function 
-    Properties:
-      FunctionName: irStats_Run_iRacing_Query
-      CodeUri: run_iRacing_query/
-      Handler: app.lambda_handler
-      Runtime: python3.9
-      Architectures:
-        - x86_64
-      Timeout: 300
-      Policies:
-        - AmazonDynamoDBFullAccess
-        - Version: '2012-10-17' # Policy Document
-          Statement: 
-            - Effect: Allow
-              Action:
-              - sqs:SendMessage
-              - sqs:GetQueueUrl
-              Resource: !GetAtt SQSQueueiRacingQueries.Arn
-        - Version: '2012-10-17' # Policy Document
-          Statement: 
-            - Effect: Allow
-              Action:
-              - s3:ListBucket
-              Resource: !GetAtt S3PrivateBucketForCredentials.Arn
-        - Version: '2012-10-17' # Policy Document
-          Statement: 
-            - Effect: Allow
-              Action:
-              - s3:PutObject
-              - s3:GetObject
-              Resource: arn:aws:s3:::*/*
-      Environment:
-        Variables:
-          bucket_name: irstats-storage
-          cookie_file_name: iRCookieJar.json
-          table_name: irStats_Generate_Session_List_Parameters
-          queue_name: irStats_iRacingApiQueryQueue
-      Events:
-        SQSTrigger:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt SQSQueueiRacingQueries.Arn
-            BatchSize: 1
+  SQSQueueiRacingData:
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: irStats_iRacingDataProcessingQueue
 
   S3PrivateBucketForCredentials:
     Type: AWS::S3::Bucket
