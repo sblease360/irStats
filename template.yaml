@@ -104,7 +104,7 @@ Resources:
         - AmazonDynamoDBFullAccess
       Environment:
         Variables:
-          table_name: irStats_Generate_Session_List_Parameters
+          table_name: irstats_iRacing_Data
       Events:
         SQSTrigger:
           Type: SQS
@@ -114,7 +114,6 @@ Resources:
 
   DynamoDBTableSessionListStartTime:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
     Properties:
       TableName: irStats_Generate_Session_List_Parameters
       AttributeDefinitions:
@@ -123,6 +122,25 @@ Resources:
       KeySchema:
         - AttributeName: Parameter
           KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      ProvisionedThroughput:
+        ReadCapacityUnits: 0
+        WriteCapacityUnits: 0
+
+  DynamoDBTableiRacingData:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: irstats_iRacing_Data
+      AttributeDefinitions:
+        - AttributeName: CarClass
+          AttributeType: S
+        - AttributeName: TrackName
+          AttributeType: S
+      KeySchema:
+        - AttributeName: CarClass
+          KeyType: HASH
+        - AttributeName: TrackName
+          KeyType: RANGE
       BillingMode: PAY_PER_REQUEST
       ProvisionedThroughput:
         ReadCapacityUnits: 0

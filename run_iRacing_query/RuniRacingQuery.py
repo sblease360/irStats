@@ -11,6 +11,7 @@ def doesS3FileExist(bucket, file):
     return 'Contents' in results
 
 def getLoginCredentials(bucket, file):
+    #TODO: Replace this with AWS Secret Manager
     if doesS3FileExist(bucket, file):
         return json.loads(s3.get_object(Bucket=bucket, Key=file)["Body"].read())
     return {}
