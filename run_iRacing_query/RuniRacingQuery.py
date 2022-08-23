@@ -7,6 +7,7 @@ from dateutil.parser import parse
 import pickle
 
 def doesS3FileExist(bucket, file):
+    #print (f"Checking if {file} exists in {bucket}")
     results = s3.list_objects(Bucket=bucket, Prefix=file)
     return 'Contents' in results
 
@@ -18,16 +19,14 @@ def getLoginCredentials(bucket, file):
     #accessed via dict_name["email"] and dict_name["password"]
 
 def storeCookie(text, bucket, cookieFile):
+    #print ("Storing new cookie file")
     s3.put_object(Body=text, Bucket=bucket, Key=cookieFile)
 
 def getCookie(bucket, file):
     if doesS3FileExist(bucket, file):
+        #print ("getting cookie file from s3 bucket")
         return pickle.loads(s3.get_object(Bucket=bucket, Key=file)["Body"].read())
-    else:
-        a = authenticate()
-        if a:
-            getCookie(bucket, file)
-        return ""
+    return ""
 
 def authenticate():
     params = getLoginCredentials(s3_bucket, "credentials.json")
@@ -138,10 +137,16 @@ dataQueue = sqs.get_queue_by_name(QueueName=os.environ['data_queue_name'])
 dynamodb = boto3.resource("dynamodb", region_name='eu-west-2')
 table = dynamodb.Table(os.environ['table_name'])
 
-cookie = getCookie(s3_bucket, cookieFileName)
+
+
+cookie = None
 
 def lambda_handler(event, context):
         #Iterate through events, each event should only contain one record but this covers if not
+    global cookie
+    if not cookie:
+        cookie = getCookie(s3_bucket, cookieFileName)
+    
     for record in event['Records']:
         a = record['body']
         a = json.loads(a)
