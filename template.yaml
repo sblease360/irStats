@@ -94,8 +94,8 @@ Resources:
     Type: AWS::Serverless::Function 
     Properties:
       FunctionName: irStats_Process_iRacing_Data
-      CodeUri: process_iRacing_data/
-      Handler: ProcessiRacingData.lambda_handler
+      CodeUri: process_iracing_data/
+      Handler: process_iracing_data.lambda_handler
       Runtime: python3.9
       Architectures:
         - x86_64
